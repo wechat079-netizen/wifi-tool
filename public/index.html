@@ -1,187 +1,29 @@
-<!DOCTYPE html>
-<html lang="my">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Network Portal Tool</title>
-    <style>
-        :root {
-            --bg: #090d16;
-            --panel: #111827;
-            --accent: #06b6d4;
-            --green: #10b981;
-            --red: #ef4444;
-            --text: #f3f4f6;
-        }
-        body {
-            background-color: var(--bg);
-            color: var(--text);
-            font-family: monospace;
-            margin: 0;
-            padding: 20px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-        }
-        .card {
-            width: 100%;
-            max-width: 480px;
-            background: var(--panel);
-            border: 1px solid var(--accent);
-            border-radius: 12px;
-            padding: 25px;
-            box-shadow: 0 0 20px rgba(6, 182, 212, 0.15);
-        }
-        h2 {
-            text-align: center;
-            color: var(--accent);
-            margin-top: 0;
-            font-size: 1.25rem;
-        }
-        .status-badge {
-            background: #1f2937;
-            padding: 10px 15px;
-            border-radius: 6px;
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 20px;
-            font-size: 0.9rem;
-        }
-        .group {
-            margin-bottom: 15px;
-        }
-        label {
-            display: block;
-            color: var(--accent);
-            font-size: 0.8rem;
-            margin-bottom: 6px;
-        }
-        input {
-            width: 100%;
-            padding: 10px;
-            background: #1f2937;
-            border: 1px solid #374151;
-            border-radius: 6px;
-            color: white;
-            box-sizing: border-box;
-            font-family: monospace;
-        }
-        button {
-            width: 100%;
-            padding: 12px;
-            background: var(--accent);
-            color: #000;
-            font-weight: bold;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            margin-top: 10px;
-            transition: 0.2s;
-        }
-        button:hover {
-            background: #22d3ee;
-        }
-        #console {
-            background: #000;
-            color: var(--green);
-            padding: 12px;
-            border-radius: 6px;
-            height: 110px;
-            overflow-y: auto;
-            font-size: 0.75rem;
-            margin-top: 20px;
-            border: 1px solid #1f2937;
-        }
-    </style>
-</head>
-<body>
+let sessionIdInput = document.getElementById('sessionId').value;
 
-    <div class="card">
-        <h2>PORTAL TOOLKIT v2</h2>
-        
-        <div class="status-badge">
-            <span>Internet Status:</span>
-            <span id="netStatus" style="color: #f59e0b;">Checking...</span>
-        </div>
+// URL လင့်ခ်ဖြစ်နေပါက gw_id သို့မဟုတ် gw_sn ကို အရင်ဖြတ်ယူမည်
+if (sessionIdInput && sessionIdInput.startsWith('http')) {
+    try {
+        const urlObj = new URL(sessionIdInput);
+        sessionIdInput = urlObj.searchParams.get('gw_id') || urlObj.searchParams.get('gw_sn') || sessionIdInput;
+    } catch (e) {
+        console.log("URL parse error");
+    }
+}
 
-        <div class="group">
-            <label>Gateway IP Address</label>
-            <input type="text" id="gwAddress" value="192.168.60.1">
-        </div>
-
-        <div class="group">
-            <label>Gateway Port</label>
-            <input type="text" id="gwPort" value="2060">
-        </div>
-
-        <div class="group">
-            <label>Session ID (SID)</label>
-            <input type="text" id="sessionId" placeholder="ဖမ်းယူရရှိထားသော Session ID ထည့်ရန်">
-        </div>
-
-        <button onclick="startEngine()">START ENGINE THREADS</button>
-
-        <div id="console">> System initialized. Ready for command...</div>
-    </div>
-
-    <script>
-        function log(msg) {
-            const box = document.getElementById('console');
-            box.innerHTML += `\n> ${msg}`;
-            box.scrollTop = box.scrollHeight;
-        }
-
-        async function checkInternet() {
-            try {
-                const res = await fetch('/api/check-net');
-                const data = await res.json();
-                const el = document.getElementById('netStatus');
-                if (data.connected) {
-                    el.innerText = 'Connected [✓]';
-                    el.style.color = 'var(--green)';
-                } else {
-                    el.innerText = 'Disconnected [X]';
-                    el.style.color = 'var(--red)';
-                }
-            } catch (e) {
-                document.getElementById('netStatus').innerText = 'Offline';
-            }
-        }
-
-        async function startEngine() {
-            const gwAddress = document.getElementById('gwAddress').value;
-            const gwPort = document.getElementById('gwPort').value;
-            const sessionId = document.getElementById('sessionId').value;
-
-            if (!sessionId) {
-                alert('ကျေးဇူးပြု၍ Session ID ထည့်ပါ!');
-                return;
-            }
-
-            log(`Launching requests to gateway ${gwAddress}:${gwPort}...`);
-
-            try {
-                const response = await fetch('/api/run-engine', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ gwAddress, gwPort, sessionId })
-                });
-                const result = await response.json();
-                
-                if (result.success) {
-                    log(`[✓] Requests sent. Success rate: ${result.stats.success}/${result.stats.total}`);
-                    checkInternet();
-                } else {
-                    log(`[!] Error: ${result.message}`);
-                }
-            } catch (err) {
-                log(`[X] Connection failed: ${err.message}`);
-            }
-        }
-
-        checkInternet();
-        setInterval(checkInternet, 5000);
-    </script>
-</body>
-</html>
+// ပြီးမှ Server ဆီသို့ Data ပို့မည်
+fetch('/api/start-engine', {
+    method: 'POST',
+    headers: {
+        'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+        gatewayIp: document.getElementById('gatewayIp').value,
+        gatewayPort: document.getElementById('gatewayPort').value,
+        sessionId: sessionIdInput // ဖြတ်ပြီးသား ID သို့မဟုတ် လင့်ခ်အတိုင်း ရောက်သွားမည်
+    })
+})
+.then(res => res.json())
+.then(data => {
+    console.log(data);
+})
+.catch(err => console.error("Error:", err));
