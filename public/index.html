@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Network Portal Tool</title>
+    <title>Ruijie Voucher System</title>
     <style>
         body {
             background-color: #0d1117;
@@ -12,8 +12,10 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
+            min-height: 100vh;
             margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
         }
         .container {
             background-color: #161b22;
@@ -21,7 +23,7 @@
             border-radius: 12px;
             padding: 20px;
             width: 100%;
-            max-width: 400px;
+            max-width: 450px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.5);
         }
         h2 {
@@ -38,7 +40,7 @@
             color: #8b949e;
             margin-bottom: 5px;
         }
-        input {
+        input, select {
             width: 100%;
             padding: 10px;
             background-color: #0d1117;
@@ -48,10 +50,6 @@
             font-size: 14px;
             box-sizing: border-box;
         }
-        input:focus {
-            border-color: #58a6ff;
-            outline: none;
-        }
         button {
             width: 100%;
             padding: 12px;
@@ -59,13 +57,17 @@
             color: white;
             border: none;
             border-radius: 6px;
-            font-size: 16px;
+            font-size: 15px;
             font-weight: bold;
             cursor: pointer;
-            margin-top: 10px;
+            margin-top: 5px;
+        }
+        .btn-gen {
+            background-color: #1f6feb;
+            margin-bottom: 15px;
         }
         button:hover {
-            background-color: #2ea043;
+            opacity: 0.9;
         }
         .console {
             background-color: #0d1117;
@@ -77,91 +79,87 @@
             font-family: monospace;
             font-size: 12px;
             color: #3fb950;
-            margin-top: 20px;
+            margin-top: 15px;
         }
     </style>
 </head>
 <body>
 
     <div class="container">
-        <h2>PORTAL TOOLKIT v2</h2>
+        <h2>VOUCHER & PORTAL TOOL</h2>
         
+        <!-- Voucher Generator Section -->
         <div class="form-group">
-            <label>Gateway IP Address</label>
-            <input type="text" id="gatewayIp" value="192.168.60.1">
+            <label>Voucher Duration (အချိန်)</label>
+            <select id="durationSelect">
+                <option value="1hour">1 Hour (၁ နာရီ)</option>
+                <option value="3hour" selected>3 Hours (၃ နာရီ)</option>
+            </select>
+        </div>
+        <button class="btn-gen" onclick="generateVoucher()">GENERATE NEW VOUCHER CODE</button>
+
+        <div class="form-group">
+            <label>Voucher Code</label>
+            <input type="text" id="voucherCode" placeholder="ထုတ်ထားသော ကုဒ်ပေါ်လာပါမည်">
         </div>
 
         <div class="form-group">
-            <label>Gateway Port</label>
-            <input type="text" id="gatewayPort" value="2060">
+            <label>Ruijie Portal Full URL</label>
+            <input type="text" id="portalUrl" placeholder="https://portal-as.ruijienetworks.com/...">
         </div>
 
-        <div class="form-group">
-            <label>Session ID (SID) or Ruijie URL</label>
-            <input type="text" id="sessionId" placeholder="လင့်ခ် သို့မဟုတ် ID ထည့်ရန်">
-        </div>
-
-        <button onclick="startEngine()">START ENGINE THREADS</button>
+        <button onclick="useVoucher()">USE VOUCHER & CONNECT INTERNET</button>
 
         <div class="console" id="consoleLog">
-            > System initialized. Ready for command...
+            > System ready. Generate or enter voucher code...
         </div>
     </div>
 
     <script>
-        function logMessage(message) {
+        function logMessage(msg) {
             const consoleBox = document.getElementById('consoleLog');
-            consoleBox.innerHTML += `<br>> ${message}`;
+            consoleBox.innerHTML += `<br>> ${msg}`;
             consoleBox.scrollTop = consoleBox.scrollHeight;
         }
 
-        function startEngine() {
-            let gatewayIp = document.getElementById('gatewayIp').value;
-            let gatewayPort = document.getElementById('gatewayPort').value;
-            let sessionIdInput = document.getElementById('sessionId').value;
+        function generateVoucher() {
+            let duration = document.getElementById('durationSelect').value;
+            fetch(`/api/generate-voucher?duration=${duration}`)
+            .then(res => res.json())
+            .then(data => {
+                if(data.success) {
+                    document.getElementById('voucherCode').value = data.voucherCode;
+                    logMessage(`[✔] Generated: ${data.voucherCode} (${data.duration})`);
+                }
+            })
+            .catch(err => logMessage(`[X] Error: ${err.message}`));
+        }
 
-            if (!sessionIdInput) {
-                logMessage("Error: Session ID or URL is required!");
+        function useVoucher() {
+            let portalUrl = document.getElementById('portalUrl').value;
+            let voucherCode = document.getElementById('voucherCode').value;
+
+            if(!portalUrl || !voucherCode) {
+                logMessage("Error: Please provide both Portal URL and Voucher Code!");
                 return;
             }
 
-            // URL လင့်ခ်ရှည်ကြီးဖြစ်နေပါက gw_id သို့မဟုတ် gw_sn ကို အလိုအလျောက် ဖြတ်ထုတ်မည်
-            if (sessionIdInput.startsWith('http')) {
-                try {
-                    const urlObj = new URL(sessionIdInput);
-                    sessionIdInput = urlObj.searchParams.get('gw_id') || urlObj.searchParams.get('gw_sn') || sessionIdInput;
-                    logMessage(`Extracted ID from URL: ${sessionIdInput}`);
-                } catch (e) {
-                    logMessage("URL parse error, using raw input.");
-                }
-            }
+            logMessage("Authenticating voucher with gateway...");
 
-            logMessage(`Launching requests to gateway ${gatewayIp}:${gatewayPort}...`);
-
-            // Server ဆီသို့ API ဖြင့် ပို့မည်
-            fetch('/api/start-engine', {
+            fetch('/api/use-voucher', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    gatewayIp: gatewayIp,
-                    gatewayPort: gatewayPort,
-                    sessionId: sessionIdInput
-                })
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ portalUrl, voucherCode })
             })
-            .then(res => {
-                if (!res.ok) {
-                    throw new Error(`Server returned status ${res.status}`);
-                }
-                return res.json();
-            })
+            .then(res => res.json())
             .then(data => {
-                logMessage(data.message || "Engine started successfully!");
+                if(data.success) {
+                    logMessage(`[✔] ${data.message}`);
+                } else {
+                    logMessage(`[X] ${data.message}`);
+                }
             })
-            .catch(err => {
-                logMessage(`[X] Connection failed: ${err.message}`);
-            });
+            .catch(err => logMessage(`[X] Connection failed: ${err.message}`));
         }
     </script>
 
