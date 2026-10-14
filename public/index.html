@@ -1,29 +1,34 @@
-let sessionIdInput = document.getElementById('sessionId').value;
+<script>
+    function startEngine() {
+        let sessionIdInput = document.getElementById('sessionId').value;
 
-// URL လင့်ခ်ဖြစ်နေပါက gw_id သို့မဟုတ် gw_sn ကို အရင်ဖြတ်ယူမည်
-if (sessionIdInput && sessionIdInput.startsWith('http')) {
-    try {
-        const urlObj = new URL(sessionIdInput);
-        sessionIdInput = urlObj.searchParams.get('gw_id') || urlObj.searchParams.get('gw_sn') || sessionIdInput;
-    } catch (e) {
-        console.log("URL parse error");
+        // URL ဖြစ်နေပါက gw_id သို့မဟုတ် gw_sn ကို ဖြတ်ထုတ်မည်
+        if (sessionIdInput && sessionIdInput.startsWith('http')) {
+            try {
+                const urlObj = new URL(sessionIdInput);
+                sessionIdInput = urlObj.searchParams.get('gw_id') || urlObj.searchParams.get('gw_sn') || sessionIdInput;
+            } catch (e) {
+                console.log("URL parse error");
+            }
+        }
+
+        // Server ဆီသို့ Data ပို့မည်
+        fetch('/api/start-engine', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                gatewayIp: document.getElementById('gatewayIp').value,
+                gatewayPort: document.getElementById('gatewayPort').value,
+                sessionId: sessionIdInput
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            console.log(data);
+            alert(data.message);
+        })
+        .catch(err => console.error("Error:", err));
     }
-}
-
-// ပြီးမှ Server ဆီသို့ Data ပို့မည်
-fetch('/api/start-engine', {
-    method: 'POST',
-    headers: {
-        'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-        gatewayIp: document.getElementById('gatewayIp').value,
-        gatewayPort: document.getElementById('gatewayPort').value,
-        sessionId: sessionIdInput // ဖြတ်ပြီးသား ID သို့မဟုတ် လင့်ခ်အတိုင်း ရောက်သွားမည်
-    })
-})
-.then(res => res.json())
-.then(data => {
-    console.log(data);
-})
-.catch(err => console.error("Error:", err));
+</script>
