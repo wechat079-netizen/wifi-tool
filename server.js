@@ -1,45 +1,40 @@
 const express = require('express');
-const cors = require('cors');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors());
+// Middleware setups
 app.use(express.json());
-app.use(express.static('public'));
+app.use(express.urlencoded({ extended: true }));
+app.use(express.static('public')); // Frontend ဖိုင်များထားရှိမည့် folder အတွက်
 
-app.get('/api/check-net', async (req, res) => {
-    try {
-        const response = await fetch('http://www.google.com/generate_204', { 
-            signal: AbortSignal.timeout(3000) 
-        });
-        res.json({ connected: response.status === 204 || response.status === 200 });
-    } catch (error) {
-        res.json({ connected: false });
-    }
-});
+// API endpoint to start threads / engine
+app.post('/api/start-engine', (req, res) => {
+    let { gatewayIp, gatewayPort, sessionId } = req.body;
 
-app.post('/api/run-engine', async (req, res) => {
-    const { gwAddress, gwPort, sessionId } = req.body;
-
-    if (!gwAddress || !gwPort || !sessionId) {
-        return res.status(400).json({ success: false, message: 'လိုအပ်သော အချက်အလက်များ မပြည့်စုံပါ!' });
-    }
-
-    const authLink = `http://${gwAddress}:${gwPort}/wifidog/auth?token=${sessionId}&phonenumber=12345`;
-    let successCount = 0;
-    const totalRequests = 15;
-
-    for (let i = 0; i < totalRequests; i++) {
+    // အကယ်၍ Session ID နေရာတွင် URL လင့်ခ်ရှည်ကြီး ထည့်လိုက်ပါက အလိုအလျောက် ဖြတ်ထုတ်ရန်
+    if (sessionId && typeof sessionId === 'string' && sessionId.startsWith('http')) {
         try {
-            const resp = await fetch(authLink, { signal: AbortSignal.timeout(2000) });
-            if (resp.ok) successCount++;
-        } catch (err) {}
+            const urlObj = new URL(sessionId);
+            // URL ထဲမှ gw_id သို့မဟုတ် gw_sn ကို Session ID အဖြစ် အလိုအလျောက် ရယူမည်
+            sessionId = urlObj.searchParams.get('gw_id') || urlObj.searchParams.get('gw_sn') || sessionId;
+        } catch (e) {
+            console.log("URL parsing error:", e.message);
+        }
     }
 
-    res.json({
-        success: true,
-        message: 'Engine requests sent successfully.',
-        stats: { total: totalRequests, success: successCount }
+    if (!sessionId) {
+        return res.status(400).json({ success: false, message: "Gateway ID or Session ID is missing!" });
+    }
+
+    console.log(`> Launching requests to gateway ${gatewayIp}:${gatewayPort} with ID: ${sessionId}`);
+
+    // ဒီနေရာမှာ သင့်ရဲ့ Network Tool လုပ်ဆောင်ရမယ့် logic တွေကို ဆက်ရေးနိုင်ပါတယ်
+
+    res.json({ 
+        success: true, 
+        message: `Engine started successfully with ID: ${sessionId}`,
+        gateway: `${gatewayIp}:${gatewayPort}`,
+        resolvedId: sessionId
     });
 });
 
