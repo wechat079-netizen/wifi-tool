@@ -1,22 +1,23 @@
 const express = require('express');
 const axios = require('axios');
+const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(express.static('public'));
 
-// Voucher များကို သိမ်းဆည်းရန် In-memory Database (Database အစား ခေတ္တသုံးရန်)
-let activeVouchers = new Map(); // Format: { "147516": { duration: "3hour", used: false } }
+// public ဖိုင်တွဲထဲမှ HTML ကို static အနေဖြင့် ချိတ်ရန်
+app.use(express.static(path.join(__dirname, 'public')));
 
-// ၁။ Voucher ကုဒ် အလိုအလျောက် ထုတ်ပေးသည့် API
+// Voucher များကို သိမ်းဆည်းရန် In-memory Database
+let activeVouchers = new Map();
+
+// Voucher အသစ်ထုတ်ပေးသည့် API
 app.get('/api/generate-voucher', (req, res) => {
     const duration = req.query.duration || '3hour';
-    // ၆ လုံးပါ ဂဏန်းအလန်း ထုတ်ပေးခြင်း
     const voucherCode = Math.floor(100000 + Math.random() * 900000).toString();
     
-    // Voucher ကို စာရင်းထဲ မှတ်တမ်းတင်မည်
     activeVouchers.set(voucherCode, { duration: duration, used: false });
 
     res.json({
@@ -27,7 +28,7 @@ app.get('/api/generate-voucher', (req, res) => {
     });
 });
 
-// ၂။ Portal လင့်ခ် နှင့် Voucher ကို စစ်ဆေးပြီး အင်တာနက်ဖွင့်ပေးမည့် API
+// Portal လင့်ခ်နှင့် Voucher ကို စစ်ဆေးပြီး အင်တာနက်ဖွင့်ပေးမည့် API
 app.post('/api/use-voucher', async (req, res) => {
     let { portalUrl, voucherCode } = req.body;
 
@@ -50,10 +51,9 @@ app.post('/api/use-voucher', async (req, res) => {
         const gwPort = urlObj.searchParams.get('gw_port') || '2060';
         const token = urlObj.searchParams.get('gw_id') || urlObj.searchParams.get('gw_sn');
 
-        // Gateway ဆီသို့ Authentication လှမ်းပို့ရန် URL
         const targetAuthUrl = `http://${gwAddress}:${gwPort}/wifidog/auth?token=${token}&voucher=${voucherCode}`;
         
-        console.log(`> Authenticating via Gateway: ${targetAuthUrl}`);
+        console.log(`> Connecting to Gateway: ${targetAuthUrl}`);
 
         try {
             await axios.get(targetAuthUrl, { timeout: 5000 });
@@ -61,7 +61,6 @@ app.post('/api/use-voucher', async (req, res) => {
             console.log("Gateway response notice:", err.message);
         }
 
-        // Voucher ကို အသုံးပြီးပြီဖြစ်ကြောင်း မှတ်သားမည်
         voucherData.used = true;
         activeVouchers.set(voucherCode, voucherData);
 
