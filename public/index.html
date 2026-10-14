@@ -1,34 +1,169 @@
-<script>
-    function startEngine() {
-        let sessionIdInput = document.getElementById('sessionId').value;
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Network Portal Tool</title>
+    <style>
+        body {
+            background-color: #0d1117;
+            color: #c9d1d9;
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .container {
+            background-color: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            padding: 20px;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+        h2 {
+            text-align: center;
+            color: #58a6ff;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            font-size: 14px;
+            color: #8b949e;
+            margin-bottom: 5px;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            background-color: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            color: #c9d1d9;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        input:focus {
+            border-color: #58a6ff;
+            outline: none;
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: #238636;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        button:hover {
+            background-color: #2ea043;
+        }
+        .console {
+            background-color: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            padding: 10px;
+            height: 120px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+            color: #3fb950;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
 
-        // URL ဖြစ်နေပါက gw_id သို့မဟုတ် gw_sn ကို ဖြတ်ထုတ်မည်
-        if (sessionIdInput && sessionIdInput.startsWith('http')) {
-            try {
-                const urlObj = new URL(sessionIdInput);
-                sessionIdInput = urlObj.searchParams.get('gw_id') || urlObj.searchParams.get('gw_sn') || sessionIdInput;
-            } catch (e) {
-                console.log("URL parse error");
-            }
+    <div class="container">
+        <h2>PORTAL TOOLKIT v2</h2>
+        
+        <div class="form-group">
+            <label>Gateway IP Address</label>
+            <input type="text" id="gatewayIp" value="192.168.60.1">
+        </div>
+
+        <div class="form-group">
+            <label>Gateway Port</label>
+            <input type="text" id="gatewayPort" value="2060">
+        </div>
+
+        <div class="form-group">
+            <label>Session ID (SID) or Ruijie URL</label>
+            <input type="text" id="sessionId" placeholder="လင့်ခ် သို့မဟုတ် ID ထည့်ရန်">
+        </div>
+
+        <button onclick="startEngine()">START ENGINE THREADS</button>
+
+        <div class="console" id="consoleLog">
+            > System initialized. Ready for command...
+        </div>
+    </div>
+
+    <script>
+        function logMessage(message) {
+            const consoleBox = document.getElementById('consoleLog');
+            consoleBox.innerHTML += `<br>> ${message}`;
+            consoleBox.scrollTop = consoleBox.scrollHeight;
         }
 
-        // Server ဆီသို့ Data ပို့မည်
-        fetch('/api/start-engine', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                gatewayIp: document.getElementById('gatewayIp').value,
-                gatewayPort: document.getElementById('gatewayPort').value,
-                sessionId: sessionIdInput
+        function startEngine() {
+            let gatewayIp = document.getElementById('gatewayIp').value;
+            let gatewayPort = document.getElementById('gatewayPort').value;
+            let sessionIdInput = document.getElementById('sessionId').value;
+
+            if (!sessionIdInput) {
+                logMessage("Error: Session ID or URL is required!");
+                return;
+            }
+
+            // URL လင့်ခ်ရှည်ကြီးဖြစ်နေပါက gw_id သို့မဟုတ် gw_sn ကို အလိုအလျောက် ဖြတ်ထုတ်မည်
+            if (sessionIdInput.startsWith('http')) {
+                try {
+                    const urlObj = new URL(sessionIdInput);
+                    sessionIdInput = urlObj.searchParams.get('gw_id') || urlObj.searchParams.get('gw_sn') || sessionIdInput;
+                    logMessage(`Extracted ID from URL: ${sessionIdInput}`);
+                } catch (e) {
+                    logMessage("URL parse error, using raw input.");
+                }
+            }
+
+            logMessage(`Launching requests to gateway ${gatewayIp}:${gatewayPort}...`);
+
+            // Server ဆီသို့ API ဖြင့် ပို့မည်
+            fetch('/api/start-engine', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    gatewayIp: gatewayIp,
+                    gatewayPort: gatewayPort,
+                    sessionId: sessionIdInput
+                })
             })
-        })
-        .then(res => res.json())
-        .then(data => {
-            console.log(data);
-            alert(data.message);
-        })
-        .catch(err => console.error("Error:", err));
-    }
-</script>
+            .then(res => {
+                if (!res.ok) {
+                    throw new Error(`Server returned status ${res.status}`);
+                }
+                return res.json();
+            })
+            .then(data => {
+                logMessage(data.message || "Engine started successfully!");
+            })
+            .catch(err => {
+                logMessage(`[X] Connection failed: ${err.message}`);
+            });
+        }
+    </script>
+
+</body>
+</html>
